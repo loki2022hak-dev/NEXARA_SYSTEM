@@ -1,0 +1,12 @@
+aiogram
+fastapi
+uvicorn
+openai
+requests
+shodan
+maigret
+duckduckgo_search
+google-search-results
+apscheduler
+psutil
+python-dotenv

@@ -4,6 +4,5 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-RUN cp /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf /app/DejaVuSans.ttf
-RUN cp /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf /app/DejaVuSans-Bold.ttf
+RUN cp /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf /app/DejaVuSans.ttf &&     cp /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf /app/DejaVuSans-Bold.ttf
 CMD ["python", "main.py"]

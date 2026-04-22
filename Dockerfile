@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     python3-venv \
+    libffi-dev \
+    libssl-dev \
+    cargo \
+    rustc \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -22,8 +26,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip pipx && \
     pip install -r requirements.txt
 
-# Встановлюємо Maigret ізольовано, але бінарник прокидається в /usr/local/bin
-RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret==0.4.4
+# Ізольоване встановлення maigret
+RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret || \
+    PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/soxoj/maigret.git
 
 COPY . .
 RUN mkdir -p reports && chmod 777 reports

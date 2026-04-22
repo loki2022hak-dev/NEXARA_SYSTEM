@@ -9,3 +9,4 @@ google-search-results
 apscheduler
 psutil
 python-dotenv
+fpdf2==2.8.1

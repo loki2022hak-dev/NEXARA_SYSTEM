@@ -3,7 +3,6 @@ fastapi==0.115.0
 uvicorn==0.30.6
 openai==1.47.0
 shodan==1.31.0
-maigret==0.4.4
 duckduckgo_search==6.2.13
 apscheduler==3.10.4
 psutil==6.0.0

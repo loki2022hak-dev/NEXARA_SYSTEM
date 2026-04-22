@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.filters import CommandStart
 from openai import AsyncOpenAI
 from fastapi import FastAPI, Request
 from serpapi import GoogleSearch
@@ -37,8 +38,18 @@ class SearchState(StatesGroup):
 class NexaraPDF(FPDF):
     def __init__(self):
         super().__init__()
-        self.add_font("DejaVu", "", "DejaVuSans.ttf")
-        self.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf")
+        # Використовуємо абсолютний системний шлях до шрифтів встановлених через apt-get
+        font_path_regular = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        font_path_bold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        
+        try:
+            if os.path.exists(font_path_regular):
+                self.add_font("DejaVu", "", font_path_regular)
+            if os.path.exists(font_path_bold):
+                self.add_font("DejaVu", "B", font_path_bold)
+        except Exception as e:
+            print(f"Font Load Error: {e}")
+
     def header(self):
         self.set_fill_color(10, 20, 35)
         self.rect(0, 0, 210, 297, 'F')
@@ -51,7 +62,7 @@ def generate_pdf(target, report, filename):
     pdf.add_page()
     pdf.set_text_color(0, 195, 255)
     pdf.set_font('DejaVu', '', 10)
-    clean_text = report.encode('utf-16', 'surrogatepass').decode('utf-16').replace('🚀','').replace('🛑','')
+    clean_text = str(report).encode('utf-16', 'surrogatepass').decode('utf-16').replace('🚀','').replace('🛑','')
     pdf.multi_cell(0, 7, clean_text)
     pdf.output(filename)
 
@@ -61,7 +72,7 @@ async def is_sub(u_id):
         return m.status not in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED]
     except: return False
 
-@dp.message(F.text == "/start")
+@dp.message(CommandStart())
 async def h_start(m: types.Message, state: FSMContext):
     if not await is_sub(m.from_user.id):
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📢 КАНАЛ", url=f"https://t.me/{CHANNEL_USER[1:]}")], [InlineKeyboardButton(text="✅ ПЕРЕВІРИТИ", callback_data="check_sub")]])
@@ -99,23 +110,27 @@ async def h_search(m: types.Message, state: FSMContext):
         await m.answer("⚠️ <b>ЗАСЕКРЕЧЕНО</b>")
         await state.clear()
         return
-    # Спрощений виклик AI для стабільності
     st = await m.answer("🔍 Пошук...")
     try:
         pdf_path = f"reports/report_{m.from_user.id}.pdf"
         os.makedirs("reports", exist_ok=True)
         generate_pdf(target, f"OSINT Report for {target}", pdf_path)
         await bot.send_document(m.chat.id, FSInputFile(pdf_path))
-    except Exception as e: await m.answer(f"Помилка: {e}")
+    except Exception as e: await m.answer(f"Помилка генерації: {e}")
     await st.delete()
     await state.clear()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if WEBHOOK_URL: await bot.set_webhook(WEBHOOK_URL)
+    if WEBHOOK_URL: await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+@app.get("/")
+async def root():
+    return {"status": "ok"}
+
 @app.post("/webhook")
 async def wh(request: Request):
     u = types.Update.model_validate(await request.json(), context={"bot": bot})

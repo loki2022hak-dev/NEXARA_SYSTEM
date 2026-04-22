@@ -27,7 +27,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 MAIGRET_BIN = os.getenv("MAIGRET_BIN", "maigret")
 PORT = int(os.getenv("PORT", 8000))
 
-# GHOST PROTECT 
+# GHOST PROTECT
 OWNER_DATA = ["ТИХОНЧУК", "ОЛЕКСАНДР", "СЕРГІЙОВИЧ", "14.09.1998", "0960391586", "380960391586", "0979218708", "380979218708", "@Nexara_EN"]
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -167,7 +167,6 @@ async def handle_search(m: types.Message, state: FSMContext):
     await state.clear()
     st = await m.answer("🔍 <b>ЗБІР ДАНИХ ТА ГЕНЕРАЦІЯ ДОСЬЄ...</b>")
     
-    # Справжній OSINT
     data = await total_engine(target)
     gov_key_safe = GOV_UA_KEY[:10] + "..." if GOV_UA_KEY else "Not Configured"
     prompt = f"TARGET: {target}\nDATA: {data}\nGOV_DATA: {gov_key_safe}\nЗвіт по 8 пунктах. Українською. Тільки факти."

@@ -9,7 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.filters import CommandStart
 from openai import AsyncOpenAI
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from serpapi import GoogleSearch
 from duckduckgo_search import DDGS
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -27,6 +27,9 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "-1002220197777")
 CHANNEL_USER = "@nexara_osint"
 MAIGRET_BIN = "/usr/local/bin/maigret"
 PORT = int(os.getenv("PORT", 8000))
+
+# ROOT CAUSE FIX: Додано ID власника для безумовного обходу блокувань
+ADMIN_IDS = [8089452251]
 
 OWNER_DATA = ["ТИХОНЧУК", "ОЛЕКСАНДР", "СЕРГІЙОВИЧ", "14.09.1998", "0960391586", "380960391586", "0979218708", "380979218708", "@Nexara_EN"]
 
@@ -99,9 +102,10 @@ async def total_engine(target):
         logging.error(f"Web Search Error: {e}")
 
     try:
-        if os.path.exists(MAIGRET_BIN):
-            p = await asyncio.create_subprocess_exec(MAIGRET_BIN, target, "--json", "simple", stdout=asyncio.subprocess.PIPE)
-            out, _ = await asyncio.wait_for(p.communicate(), timeout=50)
+        cmd = f"maigret {target} --json simple"
+        p = await asyncio.create_subprocess_shell(cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        out, _ = await asyncio.wait_for(p.communicate(), timeout=50)
+        if out:
             res["socials"] = out.decode('utf-8', errors='ignore')
     except Exception as e:
         logging.error(f"Maigret Error: {e}")
@@ -117,6 +121,8 @@ async def total_engine(target):
     return res
 
 async def check_sub(u_id):
+    if u_id in ADMIN_IDS:
+        return True
     try:
         m = await bot.get_chat_member(CHANNEL_ID, u_id)
         return m.status not in [ChatMemberStatus.LEFT, ChatMemberStatus.KICKED]
@@ -126,7 +132,6 @@ async def check_sub(u_id):
 
 @dp.message(CommandStart())
 async def cmd_start(m: types.Message, state: FSMContext):
-    logging.info(f"Incoming /start from {m.from_user.id}")
     if not await check_sub(m.from_user.id):
         await m.answer(f"🛑 <b>ДОСТУП ЗАБЛОКОВАНО</b>\nПідпишіться на {CHANNEL_USER}", reply_markup=sub_kb)
         return
@@ -146,7 +151,7 @@ async def cb_check_sub(c: types.CallbackQuery, state: FSMContext):
 async def cb_agree(c: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await c.message.delete()
-    await c.message.answer("<b>NEXARA ENTERPRISE V9.5 ACTIVE</b>", reply_markup=main_kb)
+    await c.message.answer("<b>NEXARA ENTERPRISE V12.3 ACTIVE</b>", reply_markup=main_kb)
 
 @dp.message(F.text == "📊 Статистика")
 async def stats_cmd(m: types.Message):
@@ -158,7 +163,7 @@ async def prices_cmd(m: types.Message):
 
 @dp.message(F.text == "🔎 Новий пошук")
 async def search_init(m: types.Message, state: FSMContext):
-    if user_usage.get(m.from_user.id) == datetime.date.today():
+    if user_usage.get(m.from_user.id) == datetime.date.today() and m.from_user.id not in ADMIN_IDS:
         await m.answer("❌ ЛІМІТ: 1 запит/доба.")
         return
     await state.set_state(SearchState.waiting_for_target)
@@ -205,24 +210,19 @@ async def my_results(m: types.Message):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Видаляємо вебхук перед стартом, щоб він не конфліктував з Long-Polling
+    # Примусове знищення вебхука і перехід на Polling для 100% стабільності в Koyeb
     await bot.delete_webhook(drop_pending_updates=True)
-    logging.info("Webhook destroyed. Starting robust Long-Polling engine...")
-    
     polling_task = asyncio.create_task(dp.start_polling(bot))
     scheduler.start()
-    
     yield
-    
     polling_task.cancel()
     scheduler.shutdown()
 
 app = FastAPI(lifespan=lifespan)
 
-# Healthcheck для Koyeb (щоб контейнер жив)
 @app.get("/")
 async def root():
-    return {"status": "Nexara Polling Active"}
+    return {"status": "Nexara V12.3 Active"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)

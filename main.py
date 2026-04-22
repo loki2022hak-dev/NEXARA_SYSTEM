@@ -9,7 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.filters import CommandStart
 from openai import AsyncOpenAI
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from serpapi import GoogleSearch
 from duckduckgo_search import DDGS
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -23,9 +23,8 @@ SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 SHODAN_KEY = os.getenv("SHODAN_API_KEY")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 GOV_UA_KEY = os.getenv("GOV_UA_KEY")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
+CHANNEL_ID = os.getenv("CHANNEL_ID", "-1002220197777")
 CHANNEL_USER = "@nexara_osint"
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 MAIGRET_BIN = "/usr/local/bin/maigret"
 PORT = int(os.getenv("PORT", 8000))
 
@@ -127,6 +126,7 @@ async def check_sub(u_id):
 
 @dp.message(CommandStart())
 async def cmd_start(m: types.Message, state: FSMContext):
+    logging.info(f"Incoming /start from {m.from_user.id}")
     if not await check_sub(m.from_user.id):
         await m.answer(f"🛑 <b>ДОСТУП ЗАБЛОКОВАНО</b>\nПідпишіться на {CHANNEL_USER}", reply_markup=sub_kb)
         return
@@ -146,7 +146,7 @@ async def cb_check_sub(c: types.CallbackQuery, state: FSMContext):
 async def cb_agree(c: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await c.message.delete()
-    await c.message.answer("<b>NEXARA ENTERPRISE V9.3 ACTIVE</b>", reply_markup=main_kb)
+    await c.message.answer("<b>NEXARA ENTERPRISE V9.4 ACTIVE</b>", reply_markup=main_kb)
 
 @dp.message(F.text == "📊 Статистика")
 async def stats_cmd(m: types.Message):
@@ -205,26 +205,25 @@ async def my_results(m: types.Message):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if WEBHOOK_URL: 
-        await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+    # ROOT CAUSE FIX: Знищуємо вебхук та переходимо на асинхронний Long-Polling.
+    # Це повністю оминає проблеми з Koyeb Ingress Router, які блокують Telegram POST запити.
+    await bot.delete_webhook(drop_pending_updates=True)
+    logging.info("Webhook destroyed. Starting robust Long-Polling engine...")
+    
+    polling_task = asyncio.create_task(dp.start_polling(bot))
     scheduler.start()
+    
     yield
+    
+    polling_task.cancel()
+    scheduler.shutdown()
 
 app = FastAPI(lifespan=lifespan)
 
+# Healthcheck для збереження життя контейнера Koyeb
 @app.get("/")
 async def root():
-    return {"status": "Nexara Operational"}
-
-@app.post("/webhook")
-async def wh(request: Request):
-    try:
-        data = await request.json()
-        u = types.Update.model_validate(data, context={"bot": bot})
-        await dp.feed_update(bot, u)
-    except Exception as e:
-        logging.error(f"Webhook error: {e}")
-    return {"ok": True}
+    return {"status": "Nexara Polling Active"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)

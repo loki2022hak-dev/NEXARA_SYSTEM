@@ -5,29 +5,21 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    python3-dev \
-    libcairo2-dev \
-    pkg-config \
-    fonts-dejavu-core \
-    build-essential \
-    git \
-    pipx \
-    python3-venv \
+    gcc g++ python3-dev libcairo2-dev pkg-config \
+    fonts-dejavu-core build-essential git pipx python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
+COPY constraints.txt .
 
-# CORE ENV (фікс dependency graph)
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install "typing-extensions>=4.11,<5" && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt --constraint constraints.txt
 
-# ISOLATED OSINT TOOL (повністю поза pip dependency tree)
-RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret==0.4.4 --force
+# 🔥 CRITICAL FIX: ізоляція maigret (НЕ ламає typing stack)
+RUN pipx install maigret==0.4.4 && \
+    pipx ensurepath
 
 COPY . .
 

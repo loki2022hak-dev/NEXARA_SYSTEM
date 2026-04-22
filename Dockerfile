@@ -18,14 +18,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
 COPY requirements.txt .
 
+# CORE ENV (фікс dependency graph)
 RUN pip install --upgrade pip setuptools wheel && \
+    pip install "typing-extensions>=4.11,<5" && \
     pip install --no-cache-dir -r requirements.txt
 
-RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret==0.4.4
+# ISOLATED OSINT TOOL (повністю поза pip dependency tree)
+RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret==0.4.4 --force
 
 COPY . .
+
 RUN mkdir -p reports && chmod 777 reports
 
 ENV PORT=8000

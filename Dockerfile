@@ -14,16 +14,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     pipx \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .
 
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret==0.4.4
-RUN /usr/local/bin/maigret --self-update || true
 
 COPY . .
 RUN mkdir -p reports && chmod 777 reports

@@ -26,7 +26,7 @@ RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret==0.4.4
 RUN /usr/local/bin/maigret --self-update || true
 
 COPY . .
-RUN chmod 750 reports
+RUN mkdir -p reports && chmod 777 reports
 
 ENV PORT=8000
 EXPOSE 8000

@@ -1,7 +1,12 @@
 FROM python:3.10-slim
 
-RUN apt-get update && apt-get install -y \
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    g++ \
     python3-dev \
     libcairo2-dev \
     pkg-config \
@@ -9,15 +14,20 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     python3-venv \
+    libffi-dev \
+    libssl-dev \
+    cargo \
+    rustc \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir --upgrade pip pipx && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip pipx && \
+    pip install -r requirements.txt
 
-RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret==0.4.4
+RUN PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install maigret || \
+    PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install git+https://github.com/soxoj/maigret.git
 
 COPY . .
 
